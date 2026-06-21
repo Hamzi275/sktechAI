@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+google-genai
+groq
+openai
+chromadb
+beautifulsoup4
+requests
+python-dotenv
+python-multipart

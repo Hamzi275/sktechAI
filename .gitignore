@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+venv/
+backend/venv/
+
+# Environment variables
+.env
+.env.local
+backend/.env
+frontend/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+backend/__pycache__/
+backend/**/__pycache__/
+
+# Build outputs
+dist/
+build/
+frontend/dist/
+frontend/build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Package manager locks (optional — keep package-lock.json if you want reproducible installs)
+# package-lock.json
+
+# Vite cache
+.vite/

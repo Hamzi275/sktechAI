@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: #080810;
+  color: #f0f0ff;
+  font-family: 'Inter', sans-serif;
+}
+button, input, textarea, select { font: inherit; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+* { scroll-behavior: smooth; }
+
+.code-block {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+/* Whiteboard canvas texture, with a violet undertone for the brand refresh */
+.whiteboard-surface {
+  background: linear-gradient(135deg, #fafafa 0%, #f5f3ff 100%);
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(0,0,0,0.06) 1px, transparent 0),
+    linear-gradient(135deg, #fafafa 0%, #f5f3ff 100%);
+  background-size: 20px 20px, 100% 100%;
+}
+
+.mermaid-canvas svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Hide scrollbar visually while keeping horizontal scroll for pill tabs on mobile */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Minimum touch target size on interactive elements, per mobile guidance */
+@media (max-width: 767px) {
+  button, [role="button"] {
+    min-height: 44px;
+  }
+}
