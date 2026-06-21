@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import axios from 'axios'
 import { Upload, X, Loader2, ArrowUp, PenLine, Zap } from 'lucide-react'
 import ChatHistory from './ChatHistory'
+import { apiUrl } from '../api'
 
 const DIAGRAM_TYPES = [
   { value: 'auto', label: 'Auto detect' },
@@ -56,7 +57,7 @@ export default function UploadPanel({
   const chatEndRef = useRef(null)
 
   useEffect(() => {
-    axios.get('/api/chat/history').then((res) => {
+    axios.get(apiUrl('/api/chat/history')).then((res) => {
       if (res.data?.history?.length) setChatMessages(res.data.history)
     }).catch(() => {})
   }, [])
@@ -121,7 +122,7 @@ export default function UploadPanel({
         output_format: outputFormat,
         user_prompt: userPrompt,
       }
-      const res = await axios.post('/api/analyze', body, {
+      const res = await axios.post(apiUrl('/api/analyze'), body, {
         headers: { 'Content-Type': 'application/json', ...userKeyHeaders },
       })
       onResult(res.data)
@@ -148,7 +149,7 @@ export default function UploadPanel({
     let fullResponseText = ''
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(apiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...userKeyHeaders },
         body: JSON.stringify({

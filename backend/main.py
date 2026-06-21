@@ -49,7 +49,19 @@ async def preflight_handler(rest_of_path: str):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        # Set this to your exact production Vercel URL once you have it,
+        # e.g. https://sketchflow-ai.vercel.app — read from an env var so a
+        # redeploy isn't needed every time the frontend URL changes.
+        os.getenv("FRONTEND_URL", ""),
+    ],
+    # Vercel gives every preview deployment its own subdomain
+    # (*.vercel.app), so a regex catches those too without needing a
+    # redeploy each time. The explicit list above still covers localhost
+    # and your fixed production URL.
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
