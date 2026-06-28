@@ -1,148 +1,167 @@
-# ⚡ SketchFlow AI
+<div align="center">
 
-**Sketch it. Code it. Ship it.**
+<img src="https://raw.githubusercontent.com/Hamzi275/sktechAI/main/frontend/public/1.png" alt="SketchFlow AI" width="100%" style="border-radius:12px" />
 
-Upload a whiteboard photo, or just type a description — either way you get Mermaid and/or PlantUML diagram code, a live preview, and a chat thread to keep refining it. Works on your phone as well as your desktop.
+# âš¡ SketchFlow AI
 
-## v4 — chat bug fixes
+### *Sketch it. Code it. Ship it.*
 
-Two real, separate bugs are fixed in this round:
+**Multimodal AI diagram generation â€” upload a whiteboard photo or type a description, get production-ready Mermaid & PlantUML instantly.**
 
-**1. Word-joining in chat replies** (`"Thereisnoimageprovided."`)
+<br/>
 
-The actual cause was a stray `.trim()` in the frontend's SSE parser. Groq/OpenRouter stream replies one word-token at a time, like `"There "`, `"is "`, `"no "` — the leading/trailing spaces *are* the word separators. The old code did `const line = part.trim()` before reading the payload, which stripped those spaces off every single token before concatenation, joining all the words together. Fixed by only checking/stripping the literal `"data: "` SSE prefix, never calling `.trim()` on the token itself. Verified by reproducing the exact bug, then confirming the fix output matches a normal sentence again — see the code comments in `UploadPanel.jsx` for the verified before/after.
+[![Live Demo](https://img.shields.io/badge/ðŸš€%20Live%20Demo-sktech--ai.vercel.app-6d28d9?style=for-the-badge)](https://sktech-ai.vercel.app)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![Gemini](https://img.shields.io/badge/Gemini-Vision-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://aistudio.google.com)
+[![Groq](https://img.shields.io/badge/Groq-LLaMA_3.3_70B-F55036?style=for-the-badge)](https://groq.com)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-RAG-FF6F00?style=for-the-badge)](https://www.trychroma.com)
 
-As a related edge case, a token that legitimately contains a real newline (e.g. the model streaming a multi-line code block) is escaped on the backend as a literal `\n` two-character sequence so it can't be mistaken for the SSE frame delimiter (`\n\n`), and unescaped on the frontend — but *only* that one substitution, never a blanket trim or strip.
+**[â†’ Try it live â€” no sign-up needed](https://sktech-ai.vercel.app)**
 
-**2. Chat couldn't see the uploaded image or the generated code**
-
-`UploadPanel`'s chat had no access to the image, the diagram code on screen, or its format — they were local state, never passed anywhere. Asking "make a use case diagram from the image" always got "there is no image provided," regardless of what was actually uploaded. Fixed by lifting `imageBase64`, `imageFilename`, `diagramType`, and the active output (code + format) up to `App.jsx` as the single source of truth, with `ResultPanel` reporting which tab is active and `UploadPanel` sending all of it on every chat request. The backend's `/api/chat` now accepts `current_format`, `image_base64`, and `image_filename`, and routes image-referencing messages straight to Gemini vision when an image and a Gemini key are both present.
-
-When the chat reply contains a fenced ` ```mermaid ` or ` ```plantuml ` block, it's extracted and written back into the result panel automatically, so asking the chat to change the diagram actually updates what's on screen.
-
-
-## What's new in v3
-
-- **Rebrand**: DiagramAI → SketchFlow AI, with a new violet identity and an inline SVG lightning-bolt favicon (no separate image file needed)
-- **The page actually scrolls** — v2's root layout used `h-screen overflow-hidden`, which clipped content on smaller screens. Fixed to `min-h-screen` with independently scrollable panels
-- **Responsive down to phone width** — panels stack vertically on mobile and sit side-by-side from the `md` breakpoint up; every button and input meets the 44px touch-target minimum
-- **Vision fallback chain extended to OpenRouter** — if every Gemini vision model fails (or there's no Gemini key at all), image analysis now retries through three OpenRouter vision models before giving up
-- **Colored diagram previews** — class diagrams (and everything else) now render with violet/blue/green-tinted boxes on a dot-grid canvas, instead of the old white-on-white look that made class diagrams hard to read
-- **Visual refresh** — glowing gradient CTA button, pill-style tabs, terminal-style code blocks with traffic-light dots
-
-## A bug found and fixed while wiring up the OpenRouter vision fallback
-
-Adding an OpenRouter-only vision path exposed a real blocker: the `/api/analyze` endpoint was initializing the RAG service (used only for *syntax-rule lookups*, unrelated to vision) before checking anything else, and it hard-failed the entire request with a 400 if no Gemini key was present — even for a user who only wanted to use OpenRouter. That would have silently defeated the whole point of the new vision fallback. Fixed so RAG failures fall back to the hardcoded syntax docs instead of blocking the request; only the parts of the pipeline that genuinely need a missing key now fail.
-
-## Tech Stack
-
-- **Backend**: FastAPI · `google-genai` (Gemini 2.5/2.0/1.5 Flash vision, with fallback between them) · OpenRouter vision models (Gemini-via-OpenRouter, Llama 3.2 Vision, Qwen2-VL) as a second fallback tier · `gemini-embedding-001` for RAG embeddings · Groq llama-3.3-70b → OpenRouter free text models for code generation · ChromaDB (in-memory)
-- **Frontend**: React 18 · Vite · Tailwind CSS · Mermaid.js · lucide-react
-
-## Quick Start (Windows 11 / VS Code)
-
-No new packages are needed beyond what v2 already required — `openai` was already in `requirements.txt` for the text-generation fallback, and it's reused here for vision.
-
-### Step 1 — Get API keys (all free)
-
-- **Gemini**: https://aistudio.google.com/app/apikey
-- **Groq**: https://console.groq.com/keys
-- **OpenRouter**: https://openrouter.ai/keys — now does double duty as both a text and a vision fallback
-
-### Step 2 — Backend
-
-```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Create `backend/.env`:
-```
-GEMINI_API_KEY=your_gemini_key_here
-GROQ_API_KEY=your_groq_key_here
-OPENROUTER_API_KEY=your_openrouter_key_here
-```
-
-Run:
-```bash
-uvicorn main:app --reload --port 8000
-```
-
-Expected: `SketchFlow AI ready — 6 collections, NN chunks loaded`
-
-### Step 3 — Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open http://localhost:5173 — try resizing the window or opening it on your phone to see the responsive layout.
-
-### Step 4 — Try it
-
-- **Text-only**: type "a login flow with retry on failure," tap **Generate Diagram**
-- **Image mode**: drop a whiteboard photo
-- **Chat**: after generating, type a follow-up like "make it a sequence diagram instead" — you'll see a typing indicator, then the streamed reply
-- **No Gemini key?** Add only an OpenRouter key in Settings — image analysis will route through OpenRouter's vision models instead
+</div>
 
 ---
 
-## Troubleshooting
+## What is SketchFlow AI?
 
-| Symptom | Cause / Fix |
+SketchFlow AI converts rough ideas into clean, structured diagrams â€” in seconds. Drop a whiteboard photo or describe a system in plain English, and get executable **Mermaid** or **PlantUML** code with a live visual preview and a streaming chat interface to keep refining it.
+
+Built to demonstrate end-to-end AI engineering: multimodal vision pipelines, RAG-augmented code generation, SSE streaming chat, and a production-grade React frontend â€” all deployed and publicly accessible.
+
+---
+
+## âœ¨ Features
+
+### ðŸ–¼ï¸ Multimodal Diagram Generation
+Upload any whiteboard photo, hand-drawn sketch, or architecture image. Gemini Vision analyzes it and generates accurate Mermaid or PlantUML code. Supports flowcharts, sequence diagrams, class diagrams, ER diagrams, and more â€” straight from a photo.
+
+### ðŸ” Multi-Provider AI Fallback Chain
+No single point of failure. The pipeline cascades through **Gemini 2.5 Flash â†’ Gemini 2.0 Flash â†’ Gemini 1.5 Flash â†’ OpenRouter (3 vision models)** for image analysis, and **Groq LLaMA 3.3 70B â†’ OpenRouter free text models** for code generation. If one provider is down or rate-limited, the next kicks in automatically.
+
+### ðŸ§  RAG-Augmented Code Quality
+ChromaDB stores Mermaid and PlantUML syntax rules as vector embeddings via `gemini-embedding-001`. Every generation request retrieves the most relevant syntax context first â€” dramatically reducing hallucinated or invalid diagram code.
+
+### ðŸ’¬ Streaming Diagram Chat
+Refine diagrams in a dedicated chat panel. The assistant sees your current diagram code *and* the original image, streams replies token-by-token via SSE, and automatically updates the live preview when it returns new code. No manual copy-paste needed.
+
+### ðŸ“± Fully Responsive â€” Mobile to Desktop
+Panels stack vertically on phone screens and go side-by-side from the `md` breakpoint up. Every button meets the 44px touch-target minimum. Built to actually work on phones, not just pass DevTools resize.
+
+### ðŸ”‘ Bring Your Own API Keys
+Enter your Gemini, Groq, or OpenRouter keys via an in-app settings panel. Sent as request headers and override server-side keys â€” no account or sign-up required to use the full feature set.
+
+### ðŸŽ¨ Colored Live Preview
+Diagrams render with a violet/blue/green-tinted color scheme on a dot-grid canvas. Class diagrams, flowcharts, and sequence diagrams all look visually distinct and readable â€” not washed-out white-on-white.
+
+---
+
+## ðŸ—ï¸ Architecture
+
+```
+User Input (image / text)
+        â”‚
+        â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚              FastAPI Backend                      â”‚
+â”‚                                                  â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”‚
+â”‚  â”‚  Vision     â”‚     â”‚   RAG (ChromaDB)      â”‚   â”‚
+â”‚  â”‚  Service    â”‚     â”‚   Syntax Retrieval    â”‚   â”‚
+â”‚  â”‚  Gemini â”€â”€â–º â”‚     â”‚   gemini-embedding    â”‚   â”‚
+â”‚  â”‚  OpenRouter â”‚     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”˜                â”‚                â”‚
+â”‚         â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–ºâ”Œâ”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”‚
+â”‚                        â”‚   CodeGen Service  â”‚    â”‚
+â”‚                        â”‚   Groq / OpenRouterâ”‚    â”‚
+â”‚                        â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â”‚
+â”‚                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”‚
+â”‚                    â”‚   Chat Service (SSE)     â”‚   â”‚
+â”‚                    â”‚   Memory + History       â”‚   â”‚
+â”‚                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+        â”‚
+        â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚           React Frontend (Vite + Tailwind)        â”‚
+â”‚   Upload Panel â”‚ Result Panel â”‚ Chat Panel        â”‚
+â”‚   Mermaid.js Live Preview â”‚ Settings Modal        â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+```
+
+---
+
+## ðŸ› ï¸ Tech Stack
+
+| Layer | Technology |
 |---|---|
-| `GEMINI_API_KEY not set` at startup | Create `backend/.env` with at least one key — the app degrades gracefully without Gemini if you've added an OpenRouter key instead |
-| Image analysis fails on every provider | Both Gemini's three models and OpenRouter's three vision models failed — check your keys, try a clearer photo, or describe the diagram in chat instead |
-| Class diagram preview looks washed out | Already fixed in v3 — boxes now render with a violet tint. If you still see plain white, hard-refresh so the new Mermaid theme variables take effect |
-| Layout looks cut off on a small laptop | Already fixed — the root layout no longer uses `overflow-hidden`. If you still see clipping, clear your browser cache |
-| Chat shows nothing after sending | Check that `uvicorn` is running and the response status was 200 — the UI now throws and displays an explicit error if the `/api/chat` call itself fails, rather than hanging silently |
-| Port 8000 already in use | `uvicorn main:app --reload --port 8001`, then update `vite.config.js`'s proxy target to match |
+| **Backend** | FastAPI Â· Python 3.11+ |
+| **Vision AI** | Gemini 2.5 / 2.0 / 1.5 Flash â†’ OpenRouter (3 vision models) |
+| **Code Generation** | Groq LLaMA-3.3-70B â†’ OpenRouter free text models |
+| **RAG / Embeddings** | ChromaDB (in-memory) Â· `gemini-embedding-001` |
+| **Frontend** | React 18 Â· Vite Â· Tailwind CSS |
+| **Diagram Rendering** | Mermaid.js Â· PlantUML |
+| **Streaming** | Server-Sent Events (SSE) |
+| **Deployment** | Render (backend) Â· Vercel (frontend) |
 
 ---
 
-## Project Structure
+## ðŸ“ Project Structure
 
 ```
 sketchflow-ai/
-├── backend/
-│   ├── main.py                  # FastAPI app, lifespan startup, CORS
-│   ├── requirements.txt
-│   ├── .env.example
-│   ├── routers/
-│   │   ├── analyze.py           # POST /api/analyze
-│   │   └── chat.py              # POST /api/chat, /api/chat/history
-│   └── services/
-│       ├── vision.py            # Gemini -> OpenRouter vision fallback chain
-│       ├── rag.py                # ChromaDB in-memory RAG (gemini-embedding-001)
-│       ├── docs_loader.py       # Hardcoded syntax docs + optional web fetch
-│       ├── codegen.py           # Groq -> OpenRouter text fallback chain
-│       └── memory.py            # Image-scoped chat history
-└── frontend/
-    ├── package.json
-    ├── vite.config.js           # Proxy /api -> :8000
-    ├── tailwind.config.js       # Violet/graphite SketchFlow palette
-    └── src/
-        ├── App.jsx              # min-h-screen, mobile-first stacking
-        └── components/
-            ├── UploadPanel.jsx       # Image drop, text prompt, selectors, chat
-            ├── ResultPanel.jsx       # Pill tabs, terminal-style code blocks
-            ├── MermaidPreview.jsx    # Dot-grid canvas, colored diagram boxes
-            ├── SettingsPanel.jsx     # User API key modal (mobile-sized)
-            └── ChatHistory.jsx       # Streamed chat messages + citations
+â”œâ”€â”€ backend/
+â”‚   â”œâ”€â”€ main.py                  # FastAPI app, lifespan startup, CORS
+â”‚   â”œâ”€â”€ requirements.txt
+â”‚   â”œâ”€â”€ routers/
+â”‚   â”‚   â”œâ”€â”€ analyze.py           # POST /api/analyze
+â”‚   â”‚   â””â”€â”€ chat.py              # POST /api/chat, /api/chat/history
+â”‚   â””â”€â”€ services/
+â”‚       â”œâ”€â”€ vision.py            # Gemini â†’ OpenRouter vision fallback chain
+â”‚       â”œâ”€â”€ rag.py               # ChromaDB in-memory RAG
+â”‚       â”œâ”€â”€ docs_loader.py       # Syntax docs + optional web fetch
+â”‚       â”œâ”€â”€ codegen.py           # Groq â†’ OpenRouter text fallback chain
+â”‚       â””â”€â”€ memory.py            # Image-scoped chat history
+â””â”€â”€ frontend/
+    â”œâ”€â”€ vite.config.js           # Proxy /api â†’ :8000
+    â”œâ”€â”€ tailwind.config.js       # Violet/graphite SketchFlow palette
+    â””â”€â”€ src/
+        â”œâ”€â”€ App.jsx
+        â””â”€â”€ components/
+            â”œâ”€â”€ UploadPanel.jsx       # Image drop, text prompt, chat
+            â”œâ”€â”€ ResultPanel.jsx       # Pill tabs, terminal-style code blocks
+            â”œâ”€â”€ MermaidPreview.jsx    # Dot-grid canvas, colored previews
+            â”œâ”€â”€ SettingsPanel.jsx     # User API key modal
+            â””â”€â”€ ChatHistory.jsx       # Streamed chat + citations
 ```
 
-## API Reference
+---
 
-| Method | Path | Purpose |
+## ðŸ”Œ API Reference
+
+| Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/analyze` | Image and/or text → diagram code |
-| POST | `/api/chat` | Follow-up message, streamed (SSE) |
-| GET | `/api/chat/history` | Current session's chat log |
-| DELETE | `/api/chat/history` | Clear chat memory |
+| `POST` | `/api/analyze` | Image and/or text â†’ diagram code |
+| `POST` | `/api/chat` | Follow-up message, streamed via SSE |
+| `GET` | `/api/chat/history` | Current session's chat log |
+| `DELETE` | `/api/chat/history` | Clear chat memory |
 
-User key headers (all optional, all override the server's `.env` key):
-`X-User-Gemini-Key`, `X-User-Groq-Key`, `X-User-Openrouter-Key`
+**Optional user key headers** (override server `.env`):
+`X-User-Gemini-Key` Â· `X-User-Groq-Key` Â· `X-User-Openrouter-Key`
+
+---
+
+## ðŸš€ Live Demo
+
+ðŸ‘‰ **[https://sktech-ai.vercel.app](https://sktech-ai.vercel.app)**
+
+No sign-up, no installation. Use the built-in server keys or drop in your own.
+
+---
+
+<div align="center">
+
+**Built by [Ameer Hamza](https://github.com/Hamzi275) Â· MS Artificial Intelligence Â· Beykoz University**
+
+*If this project helped you, drop a â­*
+<div></div>
