@@ -24,7 +24,7 @@
 ## 🖥️ App Preview
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/Hamzi275/sktechAI/1.png" alt="SketchFlow AI Screenshot" width="90%" />
+<img src="https://raw.githubusercontent.com/Hamzi275/sktechAI/main/1.png" alt="SketchFlow AI Screenshot" width="90%" />
 </div>
 
 ---
