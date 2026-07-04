@@ -1,129 +1,96 @@
-import { useState, useMemo } from 'react'
-import { KeyRound } from 'lucide-react'
+import { useState } from 'react'
 import UploadPanel from './components/UploadPanel'
 import ResultPanel from './components/ResultPanel'
 import SettingsPanel, { useUserKeys } from './components/SettingsPanel'
 
 export default function App() {
   const [result, setResult] = useState(null)
-  const [activeFormat, setActiveFormat] = useState('mermaid') // which output tab is "current" for chat context
+  const [currentCode, setCurrentCode] = useState('')
+  const [currentFormat, setCurrentFormat] = useState('mermaid')
   const [imageBase64, setImageBase64] = useState('')
   const [imageFilename, setImageFilename] = useState('')
   const [diagramType, setDiagramType] = useState('auto')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const { keys, saveKeys, getHeaders } = useUserKeys()
 
-  const hasUserKeys = !!(keys.gemini || keys.groq || keys.openrouter)
-
-  // The code chat should see/modify: whichever output matches activeFormat,
-  // falling back to the first output. This stays derived from `result`
-  // rather than duplicated in separate state, so the two can never drift
-  // out of sync with each other.
-  const currentOutput = useMemo(() => {
-    if (!result?.outputs?.length) return null
-    return result.outputs.find((o) => o.format === activeFormat) || result.outputs[0]
-  }, [result, activeFormat])
-
-  const currentCode = currentOutput?.code || ''
-  const currentFormat = currentOutput?.format || 'mermaid'
-
   const handleResult = (newResult) => {
     setResult(newResult)
-    if (newResult?.outputs?.length > 0) {
-      setActiveFormat(newResult.outputs[0].format)
-    }
+    const mermaid = newResult?.outputs?.find(o => o.format === 'mermaid')
+    const first = newResult?.outputs?.[0]
+    if (mermaid) { setCurrentCode(mermaid.code); setCurrentFormat('mermaid') }
+    else if (first) { setCurrentCode(first.code); setCurrentFormat(first.format) }
   }
 
-  // Called by ResultPanel when the person switches tabs, so chat always
-  // refers to whatever code is actually on screen.
-  const handleActiveOutputChange = (format) => {
-    setActiveFormat(format)
+  const handleCodeChange = (code, format) => {
+    setCurrentCode(code)
+    setCurrentFormat(format)
   }
 
-  // Called by UploadPanel when the chat reply contains a fenced code block —
-  // writes it back into result.outputs so ResultPanel reflects the edit.
   const handleCodeUpdate = (newCode, format) => {
-    setActiveFormat(format)
-    setResult((prev) => {
-      if (!prev) {
-        return {
-          detected_type: diagramType !== 'auto' ? diagramType : 'flowchart',
-          description: '',
-          outputs: [{ format, code: newCode, preview_supported: format === 'mermaid' }],
-          elements: [],
-          citations: [],
-          mode: 'text',
-        }
+    setCurrentCode(newCode)
+    setCurrentFormat(format)
+    setResult(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        outputs: prev.outputs.map(o => o.format === format ? { ...o, code: newCode } : o)
       }
-      const existingIdx = prev.outputs.findIndex((o) => o.format === format)
-      const updatedOutputs = [...prev.outputs]
-      if (existingIdx >= 0) {
-        updatedOutputs[existingIdx] = { ...updatedOutputs[existingIdx], code: newCode }
-      } else {
-        updatedOutputs.push({ format, code: newCode, preview_supported: format === 'mermaid' })
-      }
-      return { ...prev, outputs: updatedOutputs }
     })
   }
 
-  const handleImageChange = (base64, filename) => {
-    setImageBase64(base64)
-    setImageFilename(filename)
-  }
+  const hasUserKeys = keys.gemini || keys.groq || keys.openrouter
 
   return (
-    <div className="min-h-screen flex flex-col bg-graphite text-ink font-body">
-      {/* Header — sticky, never clips content below it */}
-      <header className="sticky top-0 z-40 border-b border-line bg-graphite/80 backdrop-blur-xl px-4 md:px-6 py-3 shrink-0">
+    <div className="min-h-screen flex flex-col bg-graphite text-ink">
+      <header className="sticky top-0 z-40 border-b border-white/[0.06]
+                        bg-graphite/90 backdrop-blur-xl px-4 md:px-6 py-3 shrink-0">
         <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shadow-lg shadow-accent/30 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center
+                           shadow-lg shadow-accent/30">
               <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
                 <path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L13 2Z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-sm font-display font-bold text-ink tracking-tight leading-none">
+              <h1 className="text-sm font-bold text-white tracking-tight leading-none">
                 SketchFlow <span className="text-accent">AI</span>
               </h1>
-              <p className="text-[10px] text-ink-dim leading-none mt-0.5">
+              <p className="text-[10px] text-white/30 leading-none mt-0.5">
                 Sketch it. Code it. Ship it.
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-line bg-white/[0.04] px-3 py-2 text-xs text-ink-dim hover:text-ink hover:border-accent/40 hover:bg-accent/10 transition-all duration-200 min-h-[40px]"
-          >
-            <KeyRound size={12} />
+          <button onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-white/[0.08]
+                      bg-white/[0.03] px-3 py-1.5 text-xs text-white/50
+                      hover:text-white hover:border-accent/40 hover:bg-accent/5
+                      transition-all duration-200">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
             <span className="hidden sm:inline">API Keys</span>
-            {hasUserKeys && <span className="w-1.5 h-1.5 rounded-full bg-success" />}
+            {hasUserKeys && <span className="w-1.5 h-1.5 rounded-full bg-green-400" />}
           </button>
         </div>
       </header>
 
-      {/* Main content — panels stack on mobile, sit side by side on desktop.
-          Neither this row nor the root div uses overflow-hidden, so the page
-          scrolls naturally; each panel additionally scrolls on its own. */}
-      <main className="flex flex-1 flex-col md:flex-row min-h-0">
-        <div className="w-full md:w-[360px] md:min-w-[360px] border-b md:border-b-0 md:border-r border-line">
-          <UploadPanel
-            onResult={handleResult}
-            currentCode={currentCode}
-            currentFormat={currentFormat}
-            diagramType={diagramType}
-            onDiagramTypeChange={setDiagramType}
-            imageBase64={imageBase64}
-            imageFilename={imageFilename}
-            onImageChange={handleImageChange}
-            onCodeUpdate={handleCodeUpdate}
-            userKeyHeaders={getHeaders()}
-          />
-        </div>
-
-        <div className="flex-1 min-h-[60vh] md:min-h-0">
-          <ResultPanel result={result} onActiveOutputChange={handleActiveOutputChange} />
-        </div>
+      <main className="flex flex-1 flex-col md:flex-row">
+        <UploadPanel
+          onResult={handleResult}
+          onImageChange={(b64, fname) => { setImageBase64(b64); setImageFilename(fname) }}
+          onDiagramTypeChange={setDiagramType}
+          currentCode={currentCode}
+          currentFormat={currentFormat}
+          imageBase64={imageBase64}
+          imageFilename={imageFilename}
+          diagramType={diagramType}
+          userKeyHeaders={getHeaders()}
+          onCodeUpdate={handleCodeUpdate}
+        />
+        <div className="hidden md:block w-px bg-white/[0.07] shrink-0" />
+        <ResultPanel result={result} onCodeChange={handleCodeChange} />
       </main>
 
       <SettingsPanel
