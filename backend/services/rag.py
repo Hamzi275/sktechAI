@@ -51,9 +51,11 @@ class RAGService:
                 raise ValueError("gemini_api_key required for first initialization")
             cls._instance = cls(gemini_api_key)
         elif gemini_api_key:
-            # Keep the default key fresh in case the server key was empty at
-            # startup and only became available via a user-provided key.
-            cls._instance._default_api_key = cls._instance._default_api_key or gemini_api_key
+            # FIX (Bug 2): always honor an explicitly-passed key instead of
+            # only filling it in when the stored key was empty. This allows
+            # key rotation / refresh instead of permanently sticking to the
+            # first key ever seen.
+            cls._instance._default_api_key = gemini_api_key
         return cls._instance
 
     @classmethod
@@ -94,6 +96,23 @@ class RAGService:
         current_len = 0
 
         for line in lines:
+            # FIX (Bug 1): if a single line is itself longer than chunk_size,
+            # force-split it instead of letting an oversized chunk through
+            # (which can blow past embedding API limits and get silently
+            # dropped later in add_docs).
+            if len(line) > chunk_size:
+                if current_chunk:
+                    chunk_text = "\n".join(current_chunk).strip()
+                    if chunk_text:
+                        chunks.append(chunk_text)
+                    current_chunk = []
+                    current_len = 0
+                for i in range(0, len(line), chunk_size):
+                    piece = line[i:i + chunk_size].strip()
+                    if piece:
+                        chunks.append(piece)
+                continue
+
             line_len = len(line) + 1
             if current_len + line_len > chunk_size and current_chunk:
                 chunk_text = "\n".join(current_chunk).strip()
@@ -131,8 +150,12 @@ class RAGService:
             existing = collection.get()
             if existing["ids"]:
                 collection.delete(ids=existing["ids"])
-        except Exception:
-            pass
+        except Exception as e:
+            # FIX (Bug 3): log instead of silently swallowing. If this
+            # actually fails, leftover ids can later collide with the
+            # ids generated below and crash collection.add() with no
+            # useful context, so we want this in the logs.
+            logger.warning(f"Could not clear existing docs for {collection_name}: {e}")
 
         embeddings = []
         valid_chunks = []
